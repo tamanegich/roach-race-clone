@@ -69,18 +69,21 @@ export default class gameScreen extends Phaser.Scene {
             frameRate: 7,
             repeat: 0
         });
+
         this.anims.create({
             key: 'fall',
             frames: this.anims.generateFrameNumbers('roach', {frames:[24,25,26,27]}),
             frameRate: 4,
             repeat: 0
         });
+        
         this.anims.create({
             key: 'griffin',
             frames: this.anims.generateFrameNumbers('griffin-sheet', {frames:[0,1,2,3]}),
             frameRate: 7,
             repeat: -1
         });
+
         this.player = this.physics.add.sprite(width * 0.15, 420, 'roach');
         this.player.play('run', true);
         this.player.setCollideWorldBounds(true);
@@ -101,9 +104,39 @@ export default class gameScreen extends Phaser.Scene {
         this.jumpSound = this.sound.add('jumpSound');
         this.fallSound = this.sound.add('fallSound');
 
-        this.cameras.main.setBounds(0, 0, width * 50, height)
-        this.jumpCount = 0;
+        this.items = this.physics.add.group();
+        this.physics.add.overlap(this.player, this.items, this.collectItem, null, this);
         this.obstacleSpeed = 300;
+        this.nextObstacleDelay = Phaser.Math.Between(1500, 3500);
+
+        this.nextItemTime = 0;
+
+        this.score = 0;
+        this.scoreText = this.add.text(this.scale.width - 200, 40, 'Score: 0', {
+            fontFamily: '"Press Start 2P"',
+            fontSize: '16px',
+            fill: '#FFFFFF'
+        }).setOrigin(0, 0);
+
+        this.scoreTimer = this.time.addEvent({
+            delay: 1000,
+            callback: () => {
+                if (!this.gameOver) {
+                    this.score++;
+                    this.scoreText.setText('Score: ' + this.score);
+                }
+            },
+            loop: true
+        });
+
+        this.items = this.physics.add.group();
+        this.physics.add.overlap(this.player, this.items, this.collectItem, null, this);
+
+        this.nextItemTime = 0;
+
+        this.cameras.main.setBounds(0, 0, width * 50, height)
+
+        this.jumpCount = 0;
     }
 
     update(time, delta) {
@@ -147,6 +180,7 @@ export default class gameScreen extends Phaser.Scene {
             this.player.setVelocityY(0);
             this.jumpCount = 0;
         }
+        
         this.spawnObstacles(time);
 
         this.obstacles.children.iterate((obstacle) => {
@@ -161,16 +195,24 @@ export default class gameScreen extends Phaser.Scene {
             if (obstacle.active) {
                 obstacle.body.velocity.x = -this.obstacleSpeed;
             }
+            if (!obstacle.scored && this.player.x > obstacle.x + obstacle.width) {
+                this.score += 2;
+                this.scoreText.setText('Score: ' + this.score);
+                obstacle.scored = true;
+            }
 
             if (obstacle.x < -100) {
                 obstacle.destroy();
             }
         });
+
+        this.spawnItems(time);
     }
 
     spawnObstacles(time) {
-        if (time - this.lastObstacleTime > 2000) {
+        if (time - this.lastObstacleTime > this.nextObstacleDelay) {
             this.lastObstacleTime = time;
+            this.nextObstacleDelay = Phaser.Math.Between(500, 2000);
 
             const rand = Phaser.Math.Between(0, 2);
             let obstacle;
@@ -180,12 +222,13 @@ export default class gameScreen extends Phaser.Scene {
                 obstacle.setImmovable(true);
                 obstacle.setSize(obstacle.width * 0.6, obstacle.height * 0.6);
                 obstacle.setOffset(obstacle.width * 0.2, obstacle.height * 0.2);
+                obstacle.scored = false;
 
             } else if (rand === 1) {
                 obstacle = this.obstacles.create(this.scale.width + 200, 30, 'pit');
                 obstacle.setSize(obstacle.width * 0.6, 100);
-
                 obstacle.setImmovable(true);
+                obstacle.scored = false;
 
             } else {
                 const griffinHeight = Phaser.Math.Between(150, 400);
@@ -194,11 +237,80 @@ export default class gameScreen extends Phaser.Scene {
                 obstacle.setSize(obstacle.width * 0.6, obstacle.height * 0.6);
                 obstacle.setOffset(obstacle.width * 0.2, obstacle.height * 0.2);
                 obstacle.anims.play('griffin', true);
+                obstacle.scored = false;
             }
 
             obstacle.setImmovable(true);
             obstacle.body.allowGravity = false;
         }
+    }
+
+    spawnItems(time) {
+        if (time > this.nextItemTime) {
+            this.nextItemTime = time + Phaser.Math.Between(5000, 10000); // 5–10 секунд
+
+            const itemKey = Phaser.Math.Between(0, 1) === 0 ? 'apple' : 'carrot';
+            const y = Phaser.Math.Between(150, 350);
+            const item = this.items.create(this.scale.width + 100, y, itemKey);
+            item.setVelocityX(-this.scrollSpeed);
+            item.setImmovable(true);
+            item.body.allowGravity = false;
+            item.type = itemKey;
+        }
+
+        this.items.children.iterate(item => {
+            if (item && item.x < -50) item.destroy();
+        });
+    }
+
+    collectItem(player, item) {
+        this.sound.play('pickupSound', { volume: 0.5 });
+
+        if (item.type === 'apple') {
+            this.score += 20;
+            this.showFloatingText("+20", player.x + 50, player.y - 20);
+        } else if (item.type === 'carrot') {
+            this.applyCarrotEffect();
+        }
+
+        this.scoreText.setText('Score: ' + this.score);
+        item.destroy();
+    }
+
+    showFloatingText(text, x, y) {
+        const bonusText = this.add.text(x, y, text, {
+            fontFamily: '"Press Start 2P"',
+            fontSize: '12px',
+            fill: '#FFFFFF'
+        }).setOrigin(0.5);
+
+        this.tweens.add({
+            targets: bonusText,
+            y: y - 30,
+            alpha: 0,
+            duration: 1000,
+            onComplete: () => bonusText.destroy()
+        });
+    }
+
+    applyCarrotEffect() {
+        if (this.carrotActive) return;
+        this.carrotActive = true;
+
+        const originalSpeed = this.obstacleSpeed;
+        const originalScroll = this.scrollSpeed;
+
+        this.obstacleSpeed *= 2;
+        this.scrollSpeed *= 2;
+
+        this.scoreTimer.timeScale = 3;
+
+        this.time.delayedCall(5000, () => {
+            this.obstacleSpeed = originalSpeed;
+            this.scrollSpeed = originalScroll;
+            this.scoreTimer.timeScale = 1;
+            this.carrotActive = false;
+        });
     }
 
     hitObstacle(player) {
@@ -213,5 +325,6 @@ export default class gameScreen extends Phaser.Scene {
         player.setCollideWorldBounds(true);
         player.body.allowGravity = true;
         this.obstacles.setVelocityX(0);
+        this.items.setVelocityX(0);
     }
 }
