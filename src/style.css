@@ -1,0 +1,14 @@
+body {
+	background-image: url(/assets/misc/фон.png);
+	background-size: cover;
+}
+img {
+	scale: 1;
+	margin: 1% auto;
+	display: block;
+}
+
+canvas {
+	padding: 15px;
+	background-color: black;
+}
