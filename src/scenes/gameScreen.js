@@ -17,15 +17,16 @@ export default class gameScreen extends Phaser.Scene {
         this.load.image('ground', '/assets/tiles/ground.png');
         this.load.image('sun', '/assets/tiles/sun.png');
 
-        this.load.image('tree1', '/assets/tiles/tree1.png');
-        this.load.image('tree2', '/assets/tiles/tree2.png');
-        this.load.image('tree3', '/assets/tiles/tree3.png');
-        this.load.image('notReallyATree4', '/assets/tiles/notReallyATree4.png');
-
         this.load.image('fence', '/assets/tiles/fence.png');
         this.load.image('pit', '/assets/tiles/pit.png');
 
-        this.load.audio('theme', 'assets/music/theme.mp3');
+        this.load.image('apple', '/assets/tiles/apple.png');
+        this.load.image('carrot', '/assets/tiles/carrot.png');
+
+        this.load.audio('theme', '/assets/music/theme.mp3');
+        this.load.audio('jumpSound', '/assets/music/jump.wav');
+        this.load.audio('fallSound', '/assets/music/fall.wav');
+        this.load.audio('pickupSound', '/assets/music/pickup.wav');
 
         this.load.spritesheet('roach',
             '/assets/sprite/roach.png',
@@ -35,11 +36,10 @@ export default class gameScreen extends Phaser.Scene {
             '/assets/sprite/griffin-sheet.png',
             { frameWidth: 138, frameHeight: 116 }
         );
-        
-        this.spaceKey = this.input.keyboard.addKey('space');
     }
     
     create() {
+        this.spaceKey = this.input.keyboard.addKey('space');
         const width = this.scale.width;
         const height = this.scale.height;
 
@@ -77,7 +77,7 @@ export default class gameScreen extends Phaser.Scene {
         });
         this.anims.create({
             key: 'griffin',
-            frames: this.anims.generateFrameNumbers('griffin-sheet', {frames:[0,1,2]}),
+            frames: this.anims.generateFrameNumbers('griffin-sheet', {frames:[0,1,2,3]}),
             frameRate: 7,
             repeat: -1
         });
@@ -97,7 +97,9 @@ export default class gameScreen extends Phaser.Scene {
         this.obstacles = this.physics.add.group();
         this.physics.add.overlap(this.player, this.obstacles, this.hitObstacle, null, this);
 
-        this.music = this.sound.add('theme', { loop: true, volume: 0.5 });
+        this.music = this.sound.add('theme', { loop: true, volume: 0.05});
+        this.jumpSound = this.sound.add('jumpSound');
+        this.fallSound = this.sound.add('fallSound');
 
         this.cameras.main.setBounds(0, 0, width * 50, height)
         this.jumpCount = 0;
@@ -110,7 +112,7 @@ export default class gameScreen extends Phaser.Scene {
             this.music.play();
             this.musicStarted = true;
         }
-        
+
         if (this.gameOver || !this.player.body) return;
         const dt = delta / 1000;
         this.player.setVelocityX(0);
@@ -135,11 +137,9 @@ export default class gameScreen extends Phaser.Scene {
         
         if (isJumpJustDown && (this.player.body.touching.down || this.jumpCount < this.maxJumps)) {
             this.player.setVelocityY(-600);
+            this.jumpSound.play({ volume: 0.5 });
             this.player.play('jump', true);
             this.jumpCount++;
-        }
-        if (this.jumpCount === this.maxJumps - 1) {
-
         }
 
         if (this.jumpCount === this.maxJumps) {
@@ -148,6 +148,7 @@ export default class gameScreen extends Phaser.Scene {
             this.jumpCount = 0;
         }
         this.spawnObstacles(time);
+
         this.obstacles.children.iterate((obstacle) => {
             if (!obstacle || !obstacle.body) return;
 
@@ -165,7 +166,6 @@ export default class gameScreen extends Phaser.Scene {
                 obstacle.destroy();
             }
         });
-
     }
 
     spawnObstacles(time) {
@@ -205,6 +205,7 @@ export default class gameScreen extends Phaser.Scene {
         if (this.gameOver) return;
         this.gameOver = true;
 
+        this.fallSound.play({ volume: 0.5 });
         player.anims.play('fall', true);
 
         player.setVelocity(200, -200);
