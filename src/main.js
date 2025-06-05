@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import gameScreen from './scenes/gameScreen';
 import titleScreen from './scenes/titleScreen';
 import './style.css'
+import gameOverScreen from "./scenes/gameOverScreen";
 
 const config = {
     type: Phaser.CANVAS,
@@ -22,6 +23,7 @@ const game = new Phaser.Game(config)
 
 
 game.scene.add('titleScreen', titleScreen);
-game.scene.add('gameScreen', gameScreen)
+game.scene.add('gameScreen', gameScreen);
+game.scene.add('gameOverScreen', gameOverScreen);
 
 game.scene.start('titleScreen');

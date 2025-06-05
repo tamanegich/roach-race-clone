@@ -23,6 +23,8 @@ export default class TitleScreen extends Phaser.Scene {
     }
 
     create() {
+        this.cameras.main.fadeIn(1000, 0, 0, 0);
+
         const { width, height } = this.scale;
 
         this.physics.world.setFPS(60);
@@ -73,7 +75,6 @@ export default class TitleScreen extends Phaser.Scene {
 
         this.startButton.on('pointerdown', () => {
             this.sound.play('pickupSound', { volume: 0.2 * this.soundVolume});
-            this.cameras.main.fadeOut(1000, 0, 0, 0);
             this.scene.start('gameScreen', { soundVolume: this.soundVolume ?? 1 });
             this.titleTheme.stop();
         });
@@ -100,7 +101,9 @@ export default class TitleScreen extends Phaser.Scene {
             this.sound.play('pickupSound', { volume: 0.2 * this.soundVolume});
             this.showMainMenu();
         });
+        
         this.titleTheme = this.sound.add('titleThemeMusic', { loop: true, volume: 0.2 * this.soundVolume});
+
         const unlockAudio = () => {
             if(!this.titleTheme.isPlaying) {
                 this.titleTheme.play()
@@ -127,7 +130,7 @@ export default class TitleScreen extends Phaser.Scene {
         this.soundVolume = this.soundVolume === 0 ? 1 : this.soundVolume - 0.25;
         if (this.soundVolume < 0) this.soundVolume = 0;
         const percent = Math.round(this.soundVolume * 100);
-        this.volumeText.setText(`Гучність: ${percent}%`);
+        this.volumeText.setText('Рахунок: ' + this.score);
         if (this.titleTheme && this.titleTheme.isPlaying) {
         this.titleTheme.setVolume(0.2 * this.soundVolume);
     }

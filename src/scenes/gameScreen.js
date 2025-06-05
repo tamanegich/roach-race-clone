@@ -8,11 +8,8 @@ export default class gameScreen extends Phaser.Scene {
         this.jumpCount = 0;
         this.maxJumps = 3;
         this.obstacles;
-        this.lastObstacleTime = 0;
-        this.lastTwoObstacleTypes = [];
         this.scrollSpeed = 300;
-        this.invincible = false;
-        this.invincibleCooldown = false;
+        this.resetState();
     }
     preload() {
         this.load.image('sky', '/assets/tiles/sky.png');
@@ -43,13 +40,25 @@ export default class gameScreen extends Phaser.Scene {
 
     init(data) {
         this.soundVolume = data.soundVolume ?? 1;
+        this.resetState();
     }
-    
+
+    resetState() {
+        this.carrotActive = false;
+        this.jumpCount = 0;
+        this.invincible = false;
+        this.invincibleCooldown = false;
+        this.lastObstacleTime = 0;
+        this.lastTwoObstacleTypes = [];
+    }
+
     create() {
         this.cameras.main.fadeIn(1000, 0, 0, 0);
+        this.gameOver = false;
+
         this.spaceKey = this.input.keyboard.addKey('space');
-        const width = this.scale.width;
-        const height = this.scale.height;
+
+        const { width, height } = this.scale;
 
         this.physics.world.setFPS(60);
 
@@ -108,7 +117,13 @@ export default class gameScreen extends Phaser.Scene {
         this.obstacles = this.physics.add.group();
         this.physics.add.overlap(this.player, this.obstacles, this.hitObstacle, null, this);
 
-        this.music = this.sound.add('theme', { loop: true, volume: 0.05 * this.soundVolume });
+        if (!this.sound.get('theme')) {
+            this.music = this.sound.add('theme', { loop: true, volume: 0.05 * this.soundVolume });
+            this.music.play();
+        } else {
+            this.music = this.sound.get('theme');
+        }
+
         this.jumpSound = this.sound.add('jumpSound');
         this.fallSound = this.sound.add('fallSound');
 
@@ -429,6 +444,13 @@ export default class gameScreen extends Phaser.Scene {
         player.body.allowGravity = true;
         this.obstacles.setVelocityX(0);
         this.items.setVelocityX(0);
+        this.carrotActive = false;
+        this.scrollSpeed = 300;
+        this.obstacleSpeed = 300;
         this.invBar.clear();
+
+        this.time.delayedCall(2000, () => {
+            this.scene.start('gameOverScreen', { soundVolume: this.soundVolume ?? 1, score: this.score });
+        });
     }
 }
