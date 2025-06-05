@@ -19,6 +19,14 @@ export default class gameOverScreen extends Phaser.Scene {
     init(data) {
         this.soundVolume = data.soundVolume ?? 1;
         this.score = data.score ?? 0;
+
+        const savedRecord = localStorage.getItem('bestScore');
+        this.bestScore = savedRecord ? parseInt(savedRecord, 10) : 0;
+
+        if (this.score > this.bestScore) {
+            this.bestScore = this.score;
+            localStorage.setItem('bestScore', this.bestScore);
+        }
     }
 
     create() {
@@ -47,7 +55,9 @@ export default class gameOverScreen extends Phaser.Scene {
 
         this.titleButton = this.makeText(width * 0.7, height / 2 + 30, 'До меню').setOrigin(0.5).setInteractive();
 
-        this.showScore = this.makeText(width * 0.3, height / 2, 'Рахунок: ' + this.score).setOrigin(0.5);
+        this.makeText(width * 0.3, height / 2 + 30, 'Рахунок: ' + this.score).setOrigin(0.5);
+
+        this.makeText(width * 0.3, height / 2 - 30, 'Рекорд: ' + this.bestScore).setOrigin(0.5);
 
         this.replayButton.on('pointerdown', () => {
             this.sound.play('pickupSound', { volume: 0.2 * this.soundVolume});

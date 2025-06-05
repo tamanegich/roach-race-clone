@@ -220,7 +220,7 @@ export default class gameScreen extends Phaser.Scene {
 
         const isJumpJustDown = Phaser.Input.Keyboard.JustDown(this.spaceKey);
         
-        if (isJumpJustDown && (this.player.body.touching.down || this.jumpCount < this.maxJumps)) {
+        if (isJumpJustDown && (this.player.body.onFloor() || this.jumpCount < this.maxJumps)) {
             this.player.setVelocityY(-600);
             this.jumpSound.play({ volume: 0.2 * this.soundVolume });
             this.player.play('jump', true);
