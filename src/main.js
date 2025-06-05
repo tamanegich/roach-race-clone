@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import gameScreen from './scenes/gameScreen';
+import titleScreen from './scenes/titleScreen';
 import './style.css'
 
 const config = {
@@ -15,12 +16,12 @@ const config = {
     scale: {
         autoCenter: Phaser.Scale.CENTER_HORIZONTALLY
     },
-
 }
 
 const game = new Phaser.Game(config)
 
+
+game.scene.add('titleScreen', titleScreen);
 game.scene.add('gameScreen', gameScreen)
 
-game.scene.start('gameScreen', gameScreen)
-
+game.scene.start('titleScreen');

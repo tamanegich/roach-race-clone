@@ -9,6 +9,7 @@ export default class gameScreen extends Phaser.Scene {
         this.maxJumps = 3;
         this.obstacles;
         this.lastObstacleTime = 0;
+        this.lastTwoObstacleTypes = [];
         this.scrollSpeed = 300;
         this.invincible = false;
         this.invincibleCooldown = false;
@@ -39,8 +40,13 @@ export default class gameScreen extends Phaser.Scene {
             { frameWidth: 138, frameHeight: 116 }
         );
     }
+
+    init(data) {
+        this.soundVolume = data.soundVolume ?? 1;
+    }
     
     create() {
+        this.cameras.main.fadeIn(1000, 0, 0, 0);
         this.spaceKey = this.input.keyboard.addKey('space');
         const width = this.scale.width;
         const height = this.scale.height;
@@ -102,7 +108,7 @@ export default class gameScreen extends Phaser.Scene {
         this.obstacles = this.physics.add.group();
         this.physics.add.overlap(this.player, this.obstacles, this.hitObstacle, null, this);
 
-        this.music = this.sound.add('theme', { loop: true, volume: 0.05});
+        this.music = this.sound.add('theme', { loop: true, volume: 0.05 * this.soundVolume });
         this.jumpSound = this.sound.add('jumpSound');
         this.fallSound = this.sound.add('fallSound');
 
@@ -114,10 +120,12 @@ export default class gameScreen extends Phaser.Scene {
         this.nextItemTime = 0;
 
         this.score = 0;
-        this.scoreText = this.add.text(this.scale.width - 200, 40, 'Score: 0', {
+        this.scoreText = this.add.text(this.scale.width - 220, 40, 'Рахунок: 0', {
             fontFamily: '"Press Start 2P"',
             fontSize: '16px',
-            fill: '#FFFFFF'
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 2
         }).setOrigin(0, 0);
 
         this.scoreTimer = this.time.addEvent({
@@ -125,7 +133,7 @@ export default class gameScreen extends Phaser.Scene {
             callback: () => {
                 if (!this.gameOver) {
                     this.score++;
-                    this.scoreText.setText('Score: ' + this.score);
+                    this.scoreText.setText('Рахунок: ' + this.score);
                 }
             },
             loop: true
@@ -142,14 +150,11 @@ export default class gameScreen extends Phaser.Scene {
 
         this.invBar = this.add.graphics();
         this.invBar.setDepth(10);
+
+        this.music.play();
     }
 
     update(time, delta) {
-
-        if (!this.musicStarted && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
-            this.music.play();
-            this.musicStarted = true;
-        }
 
         if (this.gameOver || !this.player.body) return;
         const dt = delta / 1000;
@@ -202,7 +207,7 @@ export default class gameScreen extends Phaser.Scene {
         
         if (isJumpJustDown && (this.player.body.touching.down || this.jumpCount < this.maxJumps)) {
             this.player.setVelocityY(-600);
-            this.jumpSound.play({ volume: 0.5 });
+            this.jumpSound.play({ volume: 0.2 * this.soundVolume });
             this.player.play('jump', true);
             this.jumpCount++;
 
@@ -238,7 +243,7 @@ export default class gameScreen extends Phaser.Scene {
             }
             if (!obstacle.scored && this.player.x > obstacle.x + obstacle.width) {
                 this.score += 2;
-                this.scoreText.setText('Score: ' + this.score);
+                this.scoreText.setText('Рахунок: ' + this.score);
                 obstacle.scored = true;
             }
 
@@ -255,17 +260,35 @@ export default class gameScreen extends Phaser.Scene {
             this.lastObstacleTime = time;
             this.nextObstacleDelay = Phaser.Math.Between(500, 2000);
 
-            const rand = Phaser.Math.Between(0, 2);
+            let type;
+            const maxTries = 10;
+            let tries = 0;
+
+            do {
+                type = Phaser.Math.Between(0, 2);
+                tries++;
+            } while (
+                this.lastTwoObstacleTypes.length >= 2 &&
+                this.lastTwoObstacleTypes[0] === type &&
+                this.lastTwoObstacleTypes[1] === type &&
+                tries < maxTries
+            );
+
+            this.lastTwoObstacleTypes.push(type);
+            if (this.lastTwoObstacleTypes.length > 2) {
+                this.lastTwoObstacleTypes.shift();
+            }
+
             let obstacle;
 
-            if (rand === 0) {
+            if (type === 0) {
                 obstacle = this.obstacles.create(this.scale.width + 200, 454, 'fence');
                 obstacle.setImmovable(true);
                 obstacle.setSize(obstacle.width * 0.6, obstacle.height * 0.6);
                 obstacle.setOffset(obstacle.width * 0.2, obstacle.height * 0.2);
                 obstacle.scored = false;
 
-            } else if (rand === 1) {
+            } else if (type === 1) {
                 obstacle = this.obstacles.create(this.scale.width + 200, 30, 'pit');
                 obstacle.setSize(obstacle.width * 0.6, 100);
                 obstacle.setImmovable(true);
@@ -305,7 +328,7 @@ export default class gameScreen extends Phaser.Scene {
     }
 
     collectItem(player, item) {
-        this.sound.play('pickupSound', { volume: 0.5 });
+        this.sound.play('pickupSound', { volume: 0.2 * this.soundVolume });
 
         if (item.type === 'apple') {
             this.score += 20;
@@ -397,7 +420,7 @@ export default class gameScreen extends Phaser.Scene {
         this.player.setAngularVelocity(0);
         this.player.setAngle(0); 
 
-        this.fallSound.play({ volume: 0.5 });
+        this.fallSound.play({ volume: 0.2 * this.soundVolume });
         player.anims.play('fall', true);
 
         player.setVelocity(200, -200);
@@ -406,5 +429,6 @@ export default class gameScreen extends Phaser.Scene {
         player.body.allowGravity = true;
         this.obstacles.setVelocityX(0);
         this.items.setVelocityX(0);
+        this.invBar.clear();
     }
 }
