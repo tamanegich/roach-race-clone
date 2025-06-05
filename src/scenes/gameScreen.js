@@ -10,6 +10,8 @@ export default class gameScreen extends Phaser.Scene {
         this.obstacles;
         this.lastObstacleTime = 0;
         this.scrollSpeed = 300;
+        this.invincible = false;
+        this.invincibleCooldown = false;
     }
     preload() {
         this.load.image('sky', '/assets/tiles/sky.png');
@@ -137,6 +139,9 @@ export default class gameScreen extends Phaser.Scene {
         this.cameras.main.setBounds(0, 0, width * 50, height)
 
         this.jumpCount = 0;
+
+        this.invBar = this.add.graphics();
+        this.invBar.setDepth(10);
     }
 
     update(time, delta) {
@@ -154,8 +159,35 @@ export default class gameScreen extends Phaser.Scene {
         this.children.getAt(1).tilePositionX += this.scrollSpeed * dt * 0.3;
         this.children.getAt(2).tilePositionX += this.scrollSpeed * dt;
 
+        const barWidth = 60;
+        const barHeight = 6;
+        const barX = this.player.x - barWidth / 2;
+        const barY = this.player.y + 80;
+
+        this.invBar.clear();
+
+        if (this.invincible) {
+            const elapsed = this.invincibleTimer.getElapsed();
+            const percent = Phaser.Math.Clamp(elapsed / 3000, 0, 1);
+
+            this.invBar.fillStyle(0x00ff00);
+            this.invBar.fillRect(barX, barY, barWidth * (1 - percent), barHeight);
+            this.invBar.lineStyle(1, 0xffffff);
+            this.invBar.strokeRect(barX, barY, barWidth, barHeight);
+        } else if (this.invincibleCooldown) {
+            const elapsed = this.cooldownTimer.getElapsed();
+            const percent = Phaser.Math.Clamp(elapsed / 5000, 0, 1);
+
+            this.invBar.fillStyle(0x888888);
+            this.invBar.fillRect(barX, barY, barWidth * (1 - percent), barHeight);
+            this.invBar.lineStyle(1, 0xffffff);
+            this.invBar.strokeRect(barX, barY, barWidth, barHeight);
+        }
+
         if (this.player.body.touching.down) {
             this.player.setVelocityY(0);
+            this.player.setAngularVelocity(0);
+            this.player.setAngle(0);  
             this.player.play('run', true);
             this.jumpCount = 0;
         }
@@ -173,11 +205,20 @@ export default class gameScreen extends Phaser.Scene {
             this.jumpSound.play({ volume: 0.5 });
             this.player.play('jump', true);
             this.jumpCount++;
+
+            if (this.jumpCount === 2) {
+                this.player.setAngularVelocity(600);
+            }
         }
 
         if (this.jumpCount === this.maxJumps) {
-            this.player.setY(430);
+            this.player.setAngularVelocity(0);
+            this.player.setAngle(0); 
+            this.player.setY(420);
             this.player.setVelocityY(0);
+            if (!this.invincible && !this.invincibleCooldown) {
+                this.activateInvincibility();
+            }
             this.jumpCount = 0;
         }
         
@@ -247,7 +288,7 @@ export default class gameScreen extends Phaser.Scene {
 
     spawnItems(time) {
         if (time > this.nextItemTime) {
-            this.nextItemTime = time + Phaser.Math.Between(5000, 10000); // 5–10 секунд
+            this.nextItemTime = time + Phaser.Math.Between(5000, 10000);
 
             const itemKey = Phaser.Math.Between(0, 1) === 0 ? 'apple' : 'carrot';
             const y = Phaser.Math.Between(150, 350);
@@ -270,6 +311,7 @@ export default class gameScreen extends Phaser.Scene {
             this.score += 20;
             this.showFloatingText("+20", player.x + 50, player.y - 20);
         } else if (item.type === 'carrot') {
+            this.showFloatingText("Carrot get!", player.x + 50, player.y - 20);
             this.applyCarrotEffect();
         }
 
@@ -313,9 +355,47 @@ export default class gameScreen extends Phaser.Scene {
         });
     }
 
+    activateInvincibility() {
+        this.invincible = true;
+        this.invincibleCooldown = true;
+
+        this.invincibleTimer = this.time.delayedCall(3000, () => {
+        this.invincible = false;
+
+        this.cooldownTimer = this.time.delayedCall(5000, () => {
+            this.invincibleCooldown = false;
+        });
+    });
+
+        this.invincibleFlash = this.time.addEvent({
+            delay: 200,
+            loop: true,
+            callback: () => {
+                const currentAlpha = this.player.alpha;
+                this.player.setAlpha(currentAlpha === 1 ? 0.3 : 1);
+            }
+        });
+
+        this.time.delayedCall(3000, () => {
+            this.invincible = false;
+            this.player.setAlpha(1);
+            if (this.invincibleFlash) {
+                this.invincibleFlash.remove();
+                this.invincibleFlash = null;
+            }
+
+            this.time.delayedCall(5000, () => {
+                this.invincibleCooldown = false;
+            });
+        });
+    }
+
     hitObstacle(player) {
-        if (this.gameOver) return;
+        if (this.gameOver || this.invincible) return;
         this.gameOver = true;
+
+        this.player.setAngularVelocity(0);
+        this.player.setAngle(0); 
 
         this.fallSound.play({ volume: 0.5 });
         player.anims.play('fall', true);
