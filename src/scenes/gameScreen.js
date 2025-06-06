@@ -1,5 +1,43 @@
 import Phaser from "phaser";
 
+class ObstacleSpawner {
+    constructor() {
+        this.lastTwoObstacleTypes = [];
+    }
+
+    async *[Symbol.asyncIterator]() {
+        while (true) {
+            const delay = Phaser.Math.Between(500, 2000);
+            await new Promise(res => setTimeout(res, delay));
+
+            let type;
+            const maxTries = 10;
+            let tries = 0;
+            do {
+                type = Phaser.Math.Between(0, 2);
+                tries++;
+            } while (
+                this.lastTwoObstacleTypes.length >= 2 &&
+                this.lastTwoObstacleTypes[0] === type &&
+                this.lastTwoObstacleTypes[1] === type &&
+                tries < maxTries
+            );
+
+            this.lastTwoObstacleTypes.push(type);
+            if (this.lastTwoObstacleTypes.length > 2) this.lastTwoObstacleTypes.shift();
+
+            let x = this.scene.scale.width + 200;
+            let y;
+            if (type === 0) y = 454;
+            else if (type === 1) y = 30;
+            else y = Phaser.Math.Between(150, 400);
+
+            yield { type: ['fence', 'pit', 'griffin'][type], x, y };
+        }
+    }
+}
+
+
 export default class gameScreen extends Phaser.Scene {
     constructor() {
         super('gameScreen');
@@ -116,6 +154,39 @@ export default class gameScreen extends Phaser.Scene {
 
         this.obstacles = this.physics.add.group();
         this.physics.add.overlap(this.player, this.obstacles, this.hitObstacle, null, this);
+        this.obstacleSpawner = new ObstacleSpawner();
+        this.obstacleSpawner.scene = this;
+
+        this.spawnObstaclesAsync = async () => {
+            for await (const obstacleData of this.obstacleSpawner) {
+                if (this.gameOver) break;
+
+                let obstacle;
+                if (obstacleData.type === 'fence') {
+                    obstacle = this.obstacles.create(obstacleData.x, obstacleData.y, 'fence');
+                    obstacle.setImmovable(true);
+                    obstacle.setSize(obstacle.width * 0.6, obstacle.height * 0.6);
+                    obstacle.setOffset(obstacle.width * 0.2, obstacle.height * 0.2);
+                    obstacle.scored = false;
+                } else if (obstacleData.type === 'pit') {
+                    obstacle = this.obstacles.create(obstacleData.x, obstacleData.y, 'pit');
+                    obstacle.setSize(obstacle.width * 0.6, 100);
+                    obstacle.setImmovable(true);
+                    obstacle.scored = false;
+                } else if (obstacleData.type === 'griffin') {
+                    obstacle = this.obstacles.create(obstacleData.x, obstacleData.y, 'griffin-sheet');
+                    obstacle.setImmovable(true);
+                    obstacle.setSize(obstacle.width * 0.6, obstacle.height * 0.6);
+                    obstacle.setOffset(obstacle.width * 0.2, obstacle.height * 0.2);
+                    obstacle.anims.play('griffin', true);
+                    obstacle.scored = false;
+                }
+
+                obstacle.body.allowGravity = false;
+            }
+        };
+
+        this.spawnObstaclesAsync();
 
         if (!this.sound.get('theme')) {
             this.music = this.sound.add('theme', { loop: true, volume: 0.05 * this.soundVolume });
@@ -241,8 +312,6 @@ export default class gameScreen extends Phaser.Scene {
             }
             this.jumpCount = 0;
         }
-        
-        this.spawnObstacles(time);
 
         this.obstacles.children.iterate((obstacle) => {
             if (!obstacle || !obstacle.body) return;
@@ -268,60 +337,6 @@ export default class gameScreen extends Phaser.Scene {
         });
 
         this.spawnItems(time);
-    }
-
-    spawnObstacles(time) {
-        if (time - this.lastObstacleTime > this.nextObstacleDelay) {
-            this.lastObstacleTime = time;
-            this.nextObstacleDelay = Phaser.Math.Between(500, 2000);
-
-            let type;
-            const maxTries = 10;
-            let tries = 0;
-
-            do {
-                type = Phaser.Math.Between(0, 2);
-                tries++;
-            } while (
-                this.lastTwoObstacleTypes.length >= 2 &&
-                this.lastTwoObstacleTypes[0] === type &&
-                this.lastTwoObstacleTypes[1] === type &&
-                tries < maxTries
-            );
-
-            this.lastTwoObstacleTypes.push(type);
-            if (this.lastTwoObstacleTypes.length > 2) {
-                this.lastTwoObstacleTypes.shift();
-            }
-
-            let obstacle;
-
-            if (type === 0) {
-                obstacle = this.obstacles.create(this.scale.width + 200, 454, 'fence');
-                obstacle.setImmovable(true);
-                obstacle.setSize(obstacle.width * 0.6, obstacle.height * 0.6);
-                obstacle.setOffset(obstacle.width * 0.2, obstacle.height * 0.2);
-                obstacle.scored = false;
-
-            } else if (type === 1) {
-                obstacle = this.obstacles.create(this.scale.width + 200, 30, 'pit');
-                obstacle.setSize(obstacle.width * 0.6, 100);
-                obstacle.setImmovable(true);
-                obstacle.scored = false;
-
-            } else {
-                const griffinHeight = Phaser.Math.Between(150, 400);
-                obstacle = this.obstacles.create(this.scale.width + 100, griffinHeight, 'griffin-sheet');
-                obstacle.setImmovable(true);
-                obstacle.setSize(obstacle.width * 0.6, obstacle.height * 0.6);
-                obstacle.setOffset(obstacle.width * 0.2, obstacle.height * 0.2);
-                obstacle.anims.play('griffin', true);
-                obstacle.scored = false;
-            }
-
-            obstacle.setImmovable(true);
-            obstacle.body.allowGravity = false;
-        }
     }
 
     spawnItems(time) {
