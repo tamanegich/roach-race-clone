@@ -130,10 +130,10 @@ export default class TitleScreen extends Phaser.Scene {
         this.soundVolume = this.soundVolume === 0 ? 1 : this.soundVolume - 0.25;
         if (this.soundVolume < 0) this.soundVolume = 0;
         const percent = Math.round(this.soundVolume * 100);
-        this.volumeText.setText('Рахунок: ' + this.score);
+        this.volumeText.setText('Гучність: ' + percent + '%');
         if (this.titleTheme && this.titleTheme.isPlaying) {
-        this.titleTheme.setVolume(0.2 * this.soundVolume);
-    }
+            this.titleTheme.setVolume(0.2 * this.soundVolume);
+        }
     }
 
     showSettings() {
